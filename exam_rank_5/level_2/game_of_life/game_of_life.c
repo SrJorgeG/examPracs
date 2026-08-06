@@ -1,233 +1,100 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   game_of_life.c                                     :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: luferna3 <luferna3@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/16 04:00:08 by luferna3          #+#    #+#             */
-/*   Updated: 2026/03/19 09:40:49 by luferna3         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
+# include <stdio.h>
+# include <unistd.h>
+# include <stdlib.h>
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
+typedef struct s_life {
+	int height;
+	int width;
+	int iterations;
+	char *board;
+} t_life;
 
-static void	printboard(char *board, int width, int height)
+
+void print_board(t_life l)
 {
-	for (int y = 0; y < height; y++)
+	int x, y;
+	for (x = 0; x < l.height; x++)
 	{
-		for (int x = 0; x < width; x++)
-		{
-			if (board[y * width + x])
-				putchar('0');
-			else
-				putchar(' ');
-		}
+		for (y = 0; y < l.width; y++)
+			putchar(l.board[x * l.width + y] ? '0' : ' ');
 		putchar('\n');
 	}
 }
 
-static int	countneighbours(char *board, int width, int height, int x, int y)
+int set_board(t_life *l)
 {
-	int	count = 0;
-	for (int dy = -1; dy <= 1; dy++)
+	char buf;
+	int flag = 0, x = 0, y = 0;
+	
+	while (read(STDIN_FILENO, &buf, 1) == 1)
 	{
-		for (int dx = -1; dx <= 1; dx++)
+		if (buf == 'w' && x > 0)
+			x--;
+		else if (buf == 's' && x < l->height - 1)
+			x++;
+		else if (buf == 'a' && y > 0)
+			y--;
+		else if (buf == 'd' && y < l->width - 1)
+			y++;
+		else if (buf == 'x')
+			flag = !flag;
+		if (flag)
+			l->board[x * l->width + y] = 1;
+	}
+	return (0);
+}
+
+int count_neighbors(t_life *l, int x, int y)
+{
+	int n = 0, dx, dy, nx, ny;
+	
+	for (dx = -1; dx <= 1; dx++)
+		for (dy = -1; dy <= 1; dy++)
 		{
 			if (dx == 0 && dy == 0)
-				continue ;
-			int neighbour_x = x + dx;
-			int neighbour_y = y + dy;
-			if ((neighbour_x >= 0 && neighbour_x < width) &&
-				neighbour_y >= 0 && neighbour_y < height)
-			{
-				count += board[neighbour_y * width + neighbour_x];
-			}
+				continue;
+			nx = x + dx;
+			ny = y + dy;
+			if (nx >= 0 && nx < l->height && ny >= 0 && ny < l->width && l->board[nx * l->width + ny])
+				n++;
 		}
-	}
-	return (count);
+	return (n);
 }
 
-static void	step(char *board, char *nextboard, int width, int height)
+void iterate_game(t_life *l)
 {
-	for (int y = 0; y < height; y++)
-	{
-		for (int x = 0; x < width; x++)
+	char *next;
+	int neigboard;
+
+	next = calloc(l->height * l->width, sizeof(char));
+	for (int x = 0; x < l->height; x++)
+		for (int y = 0; y < l->width; y++)
 		{
-			int n = countneighbours(board, width, height, x, y);
-			if (board[y * width + x])
-			{
-				if (n == 2 || n == 3)
-					nextboard[y * width + x] = 1;
-				else
-					nextboard[y * width + x] = 0;
-			}
-			else
-			{
-				if (n == 3)
-					nextboard[y * width + x] = 1;
-				else
-					nextboard[y * width + x] = 0;
-			}
+			neigboard = count_neighbors(l, x, y);
+			next[x * l->width + y] = (neigboard == 3 || (l->board[x * l->width + y] && neigboard == 2));
 		}
-	}
+	free(l->board);
+	l->board = next;
 }
 
-int main(int ac, char const *av[])
+int main(int ac, char **av)
 {
+	t_life l;
 	if (ac != 4)
 		return (1);
-	
-	int width = atoi(av[1]);
-	int height = atoi(av[2]);
-	int iter = atoi(av[3]);
-
-	char	*board = calloc(width * height, 1);
-	char	*nextboard = calloc(width * height, 1);
-
-	if (!board || !nextboard)
-		return (1);
-	
-	int x = 0, y = 0, pencil = 0;
-	char c;
-	
-	while (read(0, &c, 1) > 0)
-	{
-		if (c == 'x')
-			pencil = !pencil;
-		if (c == 'a' && x > 0)
-			x--;
-		else if (c == 'd' && x < width - 1)
-			x++;
-		else if (c == 'w' && y > 0)
-			y--;
-		else if (c == 's' && y < height - 1)
-			y++;
-		if (pencil)
-			board[y * width + x] = 1;
-	}
-
-	for (int i = 0; i < iter; i++)
-	{
-		step(board, nextboard, width, height);
-		char *tmp = board;
-		board = nextboard;
-		nextboard = tmp;
-	}
-	printboard(board, width, height);
-	free(board);
-	free(nextboard);
-	return 0;
+	l.width = atoi(av[0]);
+	l.height = atoi(av[1]);
+	l.iterations = atoi(av[2]);
+	if (l.width <= 0 || l.height <= 0 || l.iterations < 0)
+		return (2);
+	l.board = calloc(l.height * l.width, sizeof(char));
+	if (!l.board)
+		return (3);
+	if (set_board(&l))
+		return (free(l.board), 3);
+	for (int i = 0; i < l.iterations; i++)
+		iterate_game(&l);
+	print_board(l);
+	free(l.board);
+	return (0);
 }
-
-// void	printboard(char *board, int width, int height)
-// {
-// 	for (int y = 0; y < height; y++)
-// 	{
-// 		for (int x = 0; x < width; x++)
-// 		{
-// 			if (board[y * width + x])
-// 				putchar('0');
-// 			else
-// 				putchar(' ');
-// 		}
-// 		putchar('\n');
-// 	}
-// }
-
-// int	countneighbours(char *board, int width, int height, int x, int y)
-// {
-// 	int count = 0;
-	
-// 	for (int dy = -1; dy <= 1; dy++)
-// 	{
-// 		for (int dx = -1; dx <= 1; dx++)
-// 		{
-// 			if (dx == 0 && dy == 0)
-// 				continue;
-// 			int neighbour_x = x + dx;
-// 			int neighbour_y = y + dy;
-// 			if (neighbour_x >= 0 && neighbour_x < width
-// 				&& neighbour_y >= 0 && neighbour_y < height)
-// 			{
-// 				count += board[neighbour_y * width + neighbour_x];
-// 			}
-// 		}
-// 	}
-// 	return (count);
-// }
-
-// void	step(char *board, char *nextboard, int width, int height)
-// {
-// 	for (int y = 0; y < height; y++)
-// 	{
-// 		for (int x = 0; x < width; x++)
-// 		{
-// 			int n = countneighbours(board, width, height, x, y);
-// 			if (board[y * width + x])
-// 			{
-// 				if (n == 2 || n == 3)
-// 					nextboard[y * width + x] = 1;
-// 				else
-// 					nextboard[y * width + x] = 0;
-// 			}
-// 			else
-// 			{
-// 				if (n == 3)
-// 					nextboard[y * width + x] = 1;
-// 				else
-// 					nextboard[y * width + x] = 0;
-// 			}
-// 		}
-// 	}
-// }
-
-// int main(int ac, char const *av[])
-// {
-// 	if (ac != 4)
-// 		return 1;
-	
-// 	int width = atoi(av[1]);
-// 	int height = atoi(av[2]);
-// 	int iter = atoi(av[3]);
-	
-// 	char *board = calloc(width * height, 1);
-// 	char *nextboard = calloc(width * height, 1);
-
-// 	if (!board || !nextboard)
-// 		return 1;
-	
-// 	int x = 0, y = 0, pencil = 0;
-// 	char c;
-
-// 	while (read(0, &c, 1) > 0)
-// 	{
-// 		if (c == 'x')
-// 			pencil = !pencil;
-// 		if (c == 'a' && x > 0)
-// 			x--;
-// 		else if (c == 'd' && x <= width)
-// 			x++;
-// 		else if (c == 's' && y > 0)
-// 			y--;
-// 		else if (c == 'w' && y <= height)
-// 			y++;
-// 		if (pencil)
-// 			board[y * width + x] = 1;
-// 	}
-
-// 	for (int i = 0; i < iter; i++)
-// 	{
-// 		step(board, nextboard, width, height);
-// 		char *tmp = board;
-// 		board = nextboard;
-// 		nextboard = tmp;
-// 	}
-// 	printboard(board, width, height);
-// 	free(board);
-// 	free(nextboard);
-// 	return 0;
-// }
-
