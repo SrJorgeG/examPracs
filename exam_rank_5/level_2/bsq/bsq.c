@@ -1,233 +1,117 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   bsq.c                                              :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: luferna3 <luferna3@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/16 03:56:51 by luferna3          #+#    #+#             */
-/*   Updated: 2026/03/22 18:59:56 by luferna3         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "bsq.h"
 
-//UTILS
-//void print_map(t_map * map);
-//static void err(t_map *m)
-//void free_map(t_map *m)
-
-//PARSE
-//static int parse_header(t_map *map, FILE *file)
-//static int valid_line_chars(t_map *map, char *line, int length)
-//static int strip_nl_get_len(char *line)
-//static char *read_next_row(FILE *file)
-//parse_map(t_map *map, FILE *file)
-
-//SOLVE
-//static int min3(int a, int b, int c)
-//static int **alloc_dp_table(int num_rows, int num_cols)
-//static void free_dp_table(int **dp_table, int num_rows)
-//static int square_size_at(int **dp_table, t_map *map, int row, int col)
-//static void fill_best_square(t_map *map, int bottom_row, int right_col, int size)
-//solve(t_map *map)
-
-void	print_map(t_map *map)
+void print_board(t_bsq b)
 {
-	for (int i = 0; i < map->rows; i++)
-		fprintf(stdout, "%s\n", map->grid[i]);
+  for (int i = 0; i < b.height; i++)
+    fprintf(stdout, "%.*s\n", b.width, b.board + i * b.width);
 }
 
-static void	err(t_map *map)
+size_t ft_strlen(char *s)
 {
-	free_map(map);
-	fprintf(stderr, "map error\n");
+  const char *p = s;
+  while (*p)
+    p++;
+  return (p - s);
 }
 
-void	free_map(t_map *map)
+int min3(int a, int b, int c)
 {
-	for (int i = 0; i < map->rows; i++)
-		free(map->grid[i]);
-	free(map->grid);
-	map->grid = NULL;
-	map->rows = 0;
+	int m = a < b ? a : b;
+	m = m < c ? m : c;
+	return m;
 }
 
-static int parse_header(t_map *map, FILE *file)
+int solve(t_bsq *b)
 {
-	char *line = NULL;
-	size_t buf_size = 0;
-	char *cursor;
-	
-	if (getline(&line, &buf_size, file) <= 0)
-		return (free(line), 1);
-	map->rows = ft_atoi(line);
-	cursor = line;
-	while (*cursor >= '0' && *cursor <= '9')
-		cursor++;
-	if (!cursor[0] || !cursor[1] || !cursor[2])
-		return (free(line), 0);
-	map->empty    = cursor[0];
-	map->obstacle = cursor[1];
-	map->full     = cursor[2];
-	if (map->rows <= 0
-		|| map->empty == map->obstacle
-		|| map->full == map->empty
-		|| map->obstacle == map->full)
-		return (free(line), 0);
-	return (free(line), 1);
-}
-
-static int valid_line_chars(t_map *map, char *line, int length)
-{
-	int col = 0;
-	while (col < length)
-	{
-		if (line[col] != map->empty && line[col] != map->obstacle)
-			return (0);
-		col++;
-	}
-	return (1);
-}
-
-static int	strip_nl_get_len(char *line)
-{
-	int len = 0;
-	
-	while (line[len] && line[len] != '\n')
-		len++;
-	line[len] = '\0';
-	return (len);
-}
-
-static char	*read_next_row(FILE *file)
-{
-	char	*line = NULL;
-	size_t	buf_size = 0;
-	
-	if (getline(&line, &buf_size, file) <= 0)
-		return (free(line), NULL);
-	return (line);
-}
-
-int	parse_map(t_map *map, FILE *file)
-{
-	char	*line;
-	int row_index = 0;
-	int line_len;
-
-	map->grid = NULL;
-	map->rows = 0;
-	map->cols = -1;
-	if (!parse_header(map, file))
-		return (err(map), 0);
-	if (!(map->grid = calloc(map->rows + 1, sizeof(char *))))
-		return (err(map), 0);
-	while (row_index < map->rows)
-	{
-		line = read_next_row(file);
-		if (!line)
-			return (err(map), 0);
-		line_len = strip_nl_get_len(line);
-		if (map->cols == -1)
-			map->cols = line_len;
-		if (line_len == 0 || line_len != map->cols
-			|| !valid_line_chars(map, line, line_len))
-			return (err(map), 0);
-		map->grid[row_index++] = line;
-	}
-	if (row_index != map->rows)
-		return (err(map), 0);
-	return (1);
-}
-
-static int	min3(int a, int b, int c)
-{
-	return (a < b ? (a < c ? a : c) : (b < c ? b : c));
-}
-
-static int	**alloc_dp_table(int num_rows, int num_cols)
-{
-	int	**dp_table;
-
-	if (!(dp_table = calloc(num_rows, sizeof(int *))))
-		return (NULL);
-	for (int row = 0; row < num_rows; row++)
-	{
-		if (!(dp_table[row] = calloc(num_cols, sizeof(int))))
-			return (NULL);
-	}
-	return (dp_table);
-}
-
-static void	free_dp_table(int **dp_table, int num_rows)
-{
-	for (int row = 0; row < num_rows; row++)
-		free(dp_table[row]);
-	free(dp_table);
-}
-
-static int	square_size_at(int **dp_table, t_map *map, int row, int col)
-{
-	if (map->grid[row][col] == map->obstacle)
-		return (0);
-	if (row == 0 || col == 0)
-		return (1);
-	return (min3(dp_table[row - 1][col],
-			dp_table[row][col - 1],
-			dp_table[row - 1][col - 1]) + 1);
-}
-
-static void	fill_best_square(t_map *map, int bottom_row, int right_col, int size)
-{
-	int	row;
-	int	col;
-
-	row = bottom_row - size + 1;
-	while (row <= bottom_row)
-	{
-		col = right_col - size + 1;
-		while (col <= right_col)
-			map->grid[row][col++] = map->full;
-		row++;
-	}
-}
-
-/* ── solve ───────────────────────────────────────────────────────────────── */
-
-void	solve(t_map *map)
-{
-	int		**dp_table;
-	int		best_size;
-	int		best_bottom_row;
-	int		best_right_col;
-	int		row;
-	int		col;
-
-	if (!(dp_table = alloc_dp_table(map->rows, map->cols)))
-		return ;
-	best_size = 0;
-	best_bottom_row = 0;
-	best_right_col = 0;
-	row = 0;
-	while (row < map->rows)
-	{
-		col = 0;
-		while (col < map->cols)
+	int best_row = 0, best_col = 0, best_size = 0;
+	int *dp = (int*)calloc(b->height * b->width, sizeof(int));
+	if (!dp)
+		return 1;
+	for (int x = 0; x < b->height; x++) 
+		for (int y = 0; y < b->width; y++) 
 		{
-			dp_table[row][col] = square_size_at(dp_table, map, row, col);
-			if (dp_table[row][col] > best_size)
+			if (b->board[x * b->width + y] == b->obstacle)
+				continue;
+			if (x == 0 || y == 0)
+				dp[x * b->width + y] = 1;
+			else 
 			{
-				best_size = dp_table[row][col];
-				best_bottom_row = row;
-				best_right_col = col;
+				int up = dp[(x - 1) * b->width + y];
+				int left = dp[x * b->width + (y - 1)];
+				int diag = dp[(x - 1) * b->width + (y - 1)];
+				dp[x * b->width + y] = 1 + min3(up, left, diag);
 			}
-			col++;
+			if (dp[x * b->width + y] > best_size) 
+			{
+				best_size = dp[x * b->width + y];
+				best_row = x;
+				best_col = y;
+			}
 		}
-		row++;
-	}
-	fill_best_square(map, best_bottom_row, best_right_col, best_size);
-	free_dp_table(dp_table, map->rows);
+	free(dp);
+	for (int x = best_row - best_size + 1; x <= best_row; x++)
+	  for (int y = best_col - best_size + 1; y <= best_col; y++)
+	    b->board[x * b->width + y] = b->full;
+	return 0;
 }
 
+int proccess_file(FILE *f, t_bsq *b)
+{
+  char *line = NULL;
+  ssize_t bytes;
+  size_t buf = 0;
 
+  if (fscanf(f, "%d %c %c %c ", &b->height, &b->empty, &b->obstacle, &b->full) != 4)
+    return 1;
+  b->board = NULL;
+  if ( b->height <= 0 || b->empty == b->obstacle || b->empty == b->full || b->obstacle == b->full)
+    return 1;
+  for (int x = 0; x < b->height; x++) 
+  {
+    if ((bytes = getline(&line, &buf, f)) == -1)
+      return (free(line), 1);
+    int len = ft_strlen(line);
+    if (len > 0 && line[len - 1] == '\n')
+      len--;
+    if (x == 0)
+	{
+      b->width = len;
+      if (b->width <= 0)
+        return (free(line), 1);
+      b->board = (char*)calloc((b->height * b->width + 1), sizeof(char));
+      if (!b->board)
+        return (free(line), 1);
+    }
+    else if (len != b->width)
+      return (free(line), 1);
+    for (int y = 0; y < b->width; y++)
+      b->board[x * b->width + y] = line[y];
+  }
+  free(line);
+  for (int y = 0; y < b->height * b->width; y++)
+    if (b->board[y] != b->empty && b->board[y] != b->obstacle)
+      return (1);
+  return 0;
+}
+
+int main(int ac, char** av)
+{
+	t_bsq b = {0};
+	FILE *f = NULL;
+	int i = 1;
+	do
+	{
+		f = (ac == 1) ? STDIN_FILENO : fopen(av[i], "r");
+		if (!f)
+			return (fprintf(stderr, "Error: \n"), 1);
+		if(proccess_file(f, &b))
+			return (fprintf(stderr, "Error: \n"), free(b.board),  1);
+		if (solve(&b))
+			return (fprintf(stderr, "Error: \n"), free(b.board),  1);
+		print_board(b);
+		free(b.board);
+		if (f && ac != 1)
+			fclose(f);
+	} while (i++ < ac);
+	return 0;
+}

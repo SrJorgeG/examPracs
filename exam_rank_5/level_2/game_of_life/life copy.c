@@ -2,13 +2,23 @@
 
 void print_board(t_life l)
 {
-  int x, y;
-  for (x = 0; x < l.height; x++)
+  for (int x = 0; x < l.height; x++)
   {
-    for (y = 0; y < l.width; y++)
+    for (int y = 0; y < l.width; y++)
       putchar(l.board[x * l.width + y] ? '0' : ' ');
     putchar('\n');
   }
+}
+
+int init_board(t_life *l, char **av)
+{
+  l->width = atoi(av[0]);
+  l->height = atoi(av[1]);
+  l->iterations = atoi(av[2]);
+  if (l->width <= 0 || l->height <= 0 || l->iterations < 0)
+    return (1);
+  l->board = calloc(l->height * l->width, sizeof(char));
+  return (l->board == NULL);
 }
 
 int set_board(t_life *l)
@@ -35,21 +45,9 @@ int set_board(t_life *l)
   return (0);
 }
 
-int init_board(t_life *l, char **av)
-{
-  l->width = atoi(av[0]);
-  l->height = atoi(av[1]);
-  l->iterations = atoi(av[2]);
-  if (l->width <= 0 || l->height <= 0 || l->iterations < 0)
-    return (1);
-  l->board = calloc(l->height * l->width, sizeof(char));
-  return (l->board == NULL);
-}
-
 int count_neighbors(t_life *l, int x, int y)
 {
-  int n = 0;
-  int dx,	dy,	nx,	ny;
+  int dx,	dy,	nx,	ny, n = 0;
   for (dx = -1; dx <= 1; dx++)
     for (dy = -1; dy <= 1; dy++)
     {
@@ -72,10 +70,7 @@ void iterate_game(t_life *l)
     for (int y = 0; y < l->width; y++)
     {
       neigboard = count_neighbors(l, x, y);
-      if (l->board[x * l->width + y])
-        next[x * l->width + y] = (neigboard == 2 || neigboard == 3);
-      else
-        next[x * l->width + y] = (neigboard == 3);
+      next[x * l->width + y] = (neigboard == 3 || (l->board[x * l->width + y] && neigboard == 2));
     }
   free(l->board);
   l->board = next;
@@ -84,7 +79,6 @@ void iterate_game(t_life *l)
 int main(int ac, char **av)
 {
   t_life l;
-
   if (ac != 4)
     return (1);
   if (init_board(&l, av + 1))

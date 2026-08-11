@@ -1,16 +1,6 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   bigint.cpp                                         :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: jgomez-d <jgomez-d@student.42madrid.com    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/09 03:07:08 by luferna3          #+#    #+#             */
-/*   Updated: 2026/05/14 21:07:00 by jgomez-d         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "bigint.hpp"
+
+// ORTHODOX CANONNICAL FORM 
 
 bigint::bigint() : _str("0")
 {
@@ -47,6 +37,7 @@ bigint::~bigint()
 	
 }
 
+// METHODS
 
 std::string bigint::get_str() const
 {
@@ -64,6 +55,8 @@ void bigint::validate()
 		_str.erase(0, i);
 }
 
+// PRE & POST INCREMENT
+
 bigint& bigint::operator++()
 {
 	*this += bigint(1);
@@ -77,6 +70,8 @@ bigint bigint::operator++(int)
 	return (tmp);
 }
 
+// STR TO NUM
+
 static unsigned long long str_to_number(const std::string& str)
 {
 	unsigned long long result = 0;
@@ -87,9 +82,40 @@ static unsigned long long str_to_number(const std::string& str)
 	return (result);
 }
 
+// SUM
+
+bigint bigint::operator+(const bigint& other) const
+{
+	bigint	tmp(*this);
+	tmp += other;
+	return (tmp);
+}
+
+bigint& bigint::operator+=(const bigint& other)
+{
+	int i = _str.size() - 1;
+	int j = other._str.size() - 1;
+	int carry = 0;
+	std::string	result;
+	
+	while (i >= 0 || j >= 0 || carry)
+	{
+		int d1 = (i >= 0) ? _str[i--] - '0' : 0;
+		int d2 = (j >= 0) ? other._str[j--] - '0' : 0;
+		int sum = d1 + d2 + carry;
+		result += (sum % 10) + '0';
+		carry = sum / 10;
+	}
+	std::reverse(result.begin(), result.end());
+	_str = result;
+	return (*this);
+}
+
+// BIT OPS
+
 bigint& bigint::operator>>=(const bigint& obj)
 {
-	unsigned long long shift = str_to_number(obj._str);
+	unsigned long long	 shift = str_to_number(obj._str);
 
 	if (shift >= _str.size())
 		_str = "0";
@@ -113,32 +139,7 @@ bigint bigint::operator<<(unsigned int shift) const
 	return (tmp);
 }
 
-bigint bigint::operator+(const bigint& other) const
-{
-	bigint	tmp(*this);
-	tmp += other;
-	return (tmp);
-}
-
-bigint& bigint::operator+=(const bigint& other)
-{
-	int i = _str.size() - 1;
-	int j = other._str.size() - 1;
-	int carry = 0;
-	std::string	result;
-	
-	while (i >= 0 || j >= 0 || carry)
-	{
-		int d1 = (i >= 0) ? _str[i--] - '0' : 0;
-		int d2 = (j >= 0) ? other._str[j--] -'0' : 0;
-		int sum = d1 + d2 + carry;
-		result += (sum % 10) + '0';
-		carry = sum / 10;
-	}
-	std::reverse(result.begin(), result.end());
-	_str = result;
-	return (*this);
-}
+// COMPARATION OPERATORS 
 
 bool bigint::operator==(const bigint& other) const
 {
@@ -162,7 +163,6 @@ bool bigint::operator>(const bigint& other) const
 	return (other < *this);
 }
 
-
 bool bigint::operator<=(const bigint& other) const
 {
 	return (!(*this > other));
@@ -172,6 +172,8 @@ bool bigint::operator>=(const bigint& other) const
 {
 	return (!(*this < other));
 }
+
+// INSERTION
 
 std::ostream& operator<<(std::ostream& os, const bigint& toPrint)
 {

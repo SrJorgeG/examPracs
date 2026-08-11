@@ -1,15 +1,3 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   searchable_tree_bag.cpp                            :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: luferna3 <luferna3@student.42.fr>          +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2026/03/11 00:29:00 by luferna3          #+#    #+#             */
-/*   Updated: 2026/03/13 03:49:03 by luferna3         ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
 #include "searchable_tree_bag.hpp"
 
 bool	searchable_tree_bag::search(node* node, int value) const
