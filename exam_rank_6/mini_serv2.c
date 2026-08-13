@@ -16,7 +16,7 @@ int extract_message(char **buf, char **msg)
 	if (*buf == 0)
 		return (0);
 	i = 0;
-	while ((*buf)[i])
+	while ((*buf)[++i])
 	{
 		if ((*buf)[i] == '\n')
 		{
@@ -29,7 +29,6 @@ int extract_message(char **buf, char **msg)
 			*buf = newbuf;
 			return (1);
 		}
-		i++;
 	}
 	return (0);
 }
@@ -54,14 +53,9 @@ char *str_join(char *buf, char *add)
 	return (newbuf);
 }
 
-int count = 0;
-int max_fd = 0;
-int ids[65536];
-char *msgs[65536];
-
+int count = 0, max_fd = 0, ids[65536];
+char *msgs[65536], buf_read[1001], buf_write[42];
 fd_set read_fds, write_fds, all_fds;
-
-char buf_read[1001], buf_write[42];
 
 void fatal_error()
 {
@@ -80,134 +74,54 @@ int create_socket()
 
 void notify_other(int author, char *str)
 {
-    for (int fd = 0; fd <= max_fd; fd++)
-    {
-        if (FD_ISSET(fd, &write_fds) && fd != author)
-        {
-            send(fd, str, strlen(str), 0);
-        }
-    }
-}
-
-void register_client(int fd)
-{
-    if(fd > max_fd)
-        max_fd = fd;
-    
-    ids[fd] = count++;
-    msgs[fd] = NULL;
-    FD_SET(fd, &all_fds);
-
-    sprintf(buf_write, "server: client %d just arrived\n", ids[fd]);
-    notify_other(fd, buf_write);
-}
-
-void remove_client(int fd)
-{
-    sprintf(buf_write, "server: client %d just left\n", ids[fd]);
-    notify_other(fd, buf_write);
-
-    free(msgs[fd]);
-    FD_CLR(fd, &all_fds);
-    close(fd);
+	for (int fd = 0; fd <= max_fd; fd++)
+		if (FD_ISSET(fd, &write_fds) && fd != author)
+			send(fd, str, strlen(str), 0);
 }
 
 void send_msg(int fd)
 {
-    char *msg;
+	char *msg;
     while(extract_message(&(msgs[fd]), &msg))
     {
-        sprintf(buf_write, "client %d: ", ids[fd]);
+		sprintf(buf_write, "client %d: ", ids[fd]);
         notify_other(fd, buf_write);
-
         notify_other(fd, msg);
         free(msg);
     }
 }
 
-// int main(int argc, char **argv) {
+void register_client(int fd)
+{
+	if(fd > max_fd)
+		max_fd = fd;
+	ids[fd] = count++;
+	msgs[fd] = NULL;
+	FD_SET(fd, &all_fds);
+	sprintf(buf_write, "server: client %d just arrived\n", ids[fd]);
+	notify_other(fd, buf_write);
+}
 
-// 	if (argc != 2)
-//     {
-// 		write(2, "Wrong number of arguments\n", 26);
-// 		exit (1);
-// 	}
-
-// 	FD_ZERO(&all_fds);
-// 	int sockfd = create_socket();
-
-// 	struct sockaddr_in servaddr;
-// 	bzero(&servaddr, sizeof(servaddr));
-	
-// 	servaddr.sin_family = AF_INET;
-// 	servaddr.sin_addr.s_addr = htonl(2130706433);
-// 	servaddr.sin_port = htons(atoi(argv[1]));
-
-// 	if ((bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr))) != 0)
-//     {
-// 		fatal_error();
-// 	}
-// 	if (listen(sockfd, 128) != 0)
-//     {
-// 		fatal_error();
-// 	}
-
-// 	while (1)
-//     {
-// 		read_fds = write_fds = all_fds;
-// 		if (select(max_fd + 1, &read_fds, &write_fds, NULL, NULL) < 0)
-//         {
-// 			fatal_error();
-// 		}
-
-// 		for (int fd = 0; fd <= max_fd; fd++)
-//         {
-// 			if (!FD_ISSET(fd, &read_fds))
-// 				continue;
-
-// 			if (fd == sockfd){
-// 				socklen_t addr_len = sizeof(servaddr);
-// 				int client_fd = accept(sockfd, (struct sockaddr *)&servaddr, &addr_len);
-// 				if (client_fd >= 0 )
-//                 {
-// 					register_client(client_fd);
-// 					break;
-// 				}
-// 			}
-// 			else
-//             {
-// 				int bytes_read = recv(fd, buf_read, 1000, 0);
-// 				if (bytes_read <= 0)
-//                 {
-// 					remove_client(fd);
-// 					break;
-// 				}
-// 				buf_read[bytes_read] = '\0';
-// 				msgs[fd] = str_join(msgs[fd], buf_read);
-// 				send_msg(fd);
-// 			}
-// 		}
-// 	}
-// 	return 0;
-// }
+void remove_client(int fd)
+{
+	sprintf(buf_write, "server: client %d just left\n", ids[fd]);
+	notify_other(fd, buf_write);
+	free(msgs[fd]);
+	FD_CLR(fd, &all_fds);
+	close(fd);
+}
 
 int main(int ac, char *av[])
 {
 	if (ac != 2)
-	{
 		write(2, "Wrong number of arguments\n", 26);
-	}
-
 	FD_ZERO(&all_fds);
 	int sockfd = create_socket();
-
 	struct sockaddr_in servaddr;
 	bzero(&servaddr, sizeof(servaddr));
-
 	servaddr.sin_family = AF_INET; 
 	servaddr.sin_addr.s_addr = htonl(2130706433); //127.0.0.1
 	servaddr.sin_port = htons(atoi(av[1]));
-
 	if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
 		fatal_error();
 	if (listen(sockfd, 128) != 0)
