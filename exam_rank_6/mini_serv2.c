@@ -15,7 +15,7 @@ int extract_message(char **buf, char **msg)
 	*msg = 0;
 	if (*buf == 0)
 		return (0);
-	i = 0;
+	i = -1;
 	while ((*buf)[++i])
 	{
 		if ((*buf)[i] == '\n')
@@ -63,15 +63,6 @@ void fatal_error()
     exit(1);
 }
 
-int create_socket()
-{
-    max_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (max_fd < 0)
-        fatal_error();
-    FD_SET(max_fd, &all_fds);
-    return max_fd;
-}
-
 void notify_other(int author, char *str)
 {
 	for (int fd = 0; fd <= max_fd; fd++)
@@ -91,73 +82,70 @@ void send_msg(int fd)
     }
 }
 
-void register_client(int fd)
-{
-	if(fd > max_fd)
-		max_fd = fd;
-	ids[fd] = count++;
-	msgs[fd] = NULL;
-	FD_SET(fd, &all_fds);
-	sprintf(buf_write, "server: client %d just arrived\n", ids[fd]);
-	notify_other(fd, buf_write);
-}
-
-void remove_client(int fd)
-{
-	sprintf(buf_write, "server: client %d just left\n", ids[fd]);
-	notify_other(fd, buf_write);
-	free(msgs[fd]);
-	FD_CLR(fd, &all_fds);
-	close(fd);
-}
-
 int main(int ac, char *av[])
 {
 	if (ac != 2)
-		write(2, "Wrong number of arguments\n", 26);
+		write(2, "Wrong number of arguments\n", 26), exit(1);
 	FD_ZERO(&all_fds);
-	int sockfd = create_socket();
+	// Create Socket -----------------------------------------------------------------------------
+	max_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (max_fd < 0)
+        fatal_error();
+    FD_SET(max_fd, &all_fds);
+	int sockfd = max_fd;
+	// Inizialiting and Binding Socket, Socket listening -----------------------------------------
 	struct sockaddr_in servaddr;
 	bzero(&servaddr, sizeof(servaddr));
 	servaddr.sin_family = AF_INET; 
-	servaddr.sin_addr.s_addr = htonl(2130706433); //127.0.0.1
+	servaddr.sin_addr.s_addr = htonl(2130706433);
 	servaddr.sin_port = htons(atoi(av[1]));
-	if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) != 0)
+	if (bind(sockfd, (const struct sockaddr *)&servaddr, sizeof(servaddr)) || listen(sockfd, 128))
 		fatal_error();
-	if (listen(sockfd, 128) != 0)
-		fatal_error();
+	// Infinite loop  ----------------------------------------------------------------------------
 	while (1)
 	{
+		// read, write = all; Select -------------------------------------------------------------
 		read_fds = write_fds = all_fds;
 		if (select(max_fd + 1, &read_fds, &write_fds, NULL, NULL) < 0)
 			fatal_error();
 		for (int fd = 0; fd <= max_fd; fd++)
-		{
-			if (!FD_ISSET(fd, &read_fds))
-				continue;
-			if (fd == sockfd)
-			{
-				socklen_t addr_len = sizeof(servaddr);
-				int client_fd = accept(sockfd, (struct sockaddr *)&servaddr, &addr_len);
-				if (client_fd >= 0)
+			if (FD_ISSET(fd, &read_fds))
+				if (fd == sockfd)
 				{
-					register_client(client_fd);
-					break;
+					// Accepting -----------------------------------------------------------------
+					socklen_t addr_len = sizeof(servaddr);
+					int client_fd = accept(sockfd, (struct sockaddr *)&servaddr, &addr_len);
+					if (client_fd >= 0)
+					{
+						// Register new client if accept succeeds --------------------------------
+						if(client_fd > max_fd)
+							max_fd = client_fd;
+						ids[client_fd] = count++;
+						msgs[client_fd] = NULL;
+						FD_SET(client_fd, &all_fds);
+						sprintf(buf_write, "server: client %d just arrived\n", ids[client_fd]);
+						notify_other(client_fd, buf_write);
+						break;
+					}
 				}
-			}
-			else
-			{
-				int bytes_read = recv(fd, buf_read, 1000, 0);
-				if (bytes_read <= 0)
+				else
 				{
-					remove_client(fd);
-					break;
+					// Recieveing a 1000 byte char* from fd into buf_read ------------------------
+					int bytes_read = recv(fd, buf_read, 1000, 0);
+					if (bytes_read <= 0)
+					{
+						// Remove client if recieve fails ----------------------------------------
+						sprintf(buf_write, "server: client %d just left\n", ids[fd]);
+						notify_other(fd, buf_write);
+						free(msgs[fd]);
+						FD_CLR(fd, &all_fds);
+						close(fd);
+						break;
+					}
+					buf_read[bytes_read] = '\0';
+					msgs[fd] = str_join(msgs[fd], buf_read);
+					send_msg(fd);
 				}
-				buf_read[bytes_read] = '\0';
-				msgs[fd] = str_join(msgs[fd], buf_read);
-				send_msg(fd);
-			}
-		}
 	}
 	return 0;
 }
